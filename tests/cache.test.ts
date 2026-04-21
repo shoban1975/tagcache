@@ -60,4 +60,46 @@ describe("Cache", () => {
     expect(c.stats().hits).toBe(0);
     expect(c.stats().misses).toBe(0);
   });
+
+  it("invalidateTag() removes every entry with the tag", () => {
+    const c = new Cache<number>();
+    c.set("u:1:profile", 1, ["user:1"]);
+    c.set("u:1:settings", 2, ["user:1"]);
+    c.set("u:2:profile", 3, ["user:2"]);
+    expect(c.invalidateTag("user:1")).toBe(2);
+    expect(c.has("u:1:profile")).toBe(false);
+    expect(c.has("u:1:settings")).toBe(false);
+    expect(c.has("u:2:profile")).toBe(true);
+    expect(c.stats().invalidations).toBe(2);
+  });
+
+  it("invalidateTag() returns 0 for an unknown tag", () => {
+    const c = new Cache<number>();
+    c.set("a", 1, ["t1"]);
+    expect(c.invalidateTag("t-unknown")).toBe(0);
+  });
+
+  it("tagsFor() returns the tags on a key", () => {
+    const c = new Cache<number>();
+    c.set("a", 1, ["t1", "t2"]);
+    expect(new Set(c.tagsFor("a"))).toEqual(new Set(["t1", "t2"]));
+    expect(c.tagsFor("missing")).toEqual([]);
+  });
+
+  it("re-setting a key removes it from old tag buckets", () => {
+    const c = new Cache<number>();
+    c.set("a", 1, ["t1"]);
+    c.set("a", 2, ["t2"]);
+    expect(c.invalidateTag("t1")).toBe(0);
+    expect(c.has("a")).toBe(true);
+    expect(c.invalidateTag("t2")).toBe(1);
+    expect(c.has("a")).toBe(false);
+  });
+
+  it("delete() removes the key from its tag buckets", () => {
+    const c = new Cache<number>();
+    c.set("a", 1, ["t1"]);
+    c.delete("a");
+    expect(c.invalidateTag("t1")).toBe(0);
+  });
 });
