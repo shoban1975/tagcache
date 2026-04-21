@@ -60,4 +60,38 @@ describe("Cache", () => {
     expect(c.stats().hits).toBe(0);
     expect(c.stats().misses).toBe(0);
   });
+
+  it("get() returns undefined for an expired entry and counts the miss", async () => {
+    const c = new Cache<number>();
+    c.set("a", 1, 5);
+    await new Promise((r) => setTimeout(r, 15));
+    expect(c.get("a")).toBeUndefined();
+    expect(c.stats().misses).toBe(1);
+    expect(c.stats().expirations).toBe(1);
+  });
+
+  it("has() returns false for an expired entry", async () => {
+    const c = new Cache<number>();
+    c.set("a", 1, 5);
+    await new Promise((r) => setTimeout(r, 15));
+    expect(c.has("a")).toBe(false);
+  });
+
+  it("sweep() proactively removes expired entries", async () => {
+    const c = new Cache<number>();
+    c.set("a", 1, 5);
+    c.set("b", 2);
+    await new Promise((r) => setTimeout(r, 15));
+    const removed = c.sweep();
+    expect(removed).toBe(1);
+    expect(c.stats().size).toBe(1);
+  });
+
+  it("background sweeper removes expired entries on its own", async () => {
+    const c = new Cache<number>({ sweepIntervalMs: 5 });
+    c.set("a", 1, 5);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(c.stats().size).toBe(0);
+    c.destroy();
+  });
 });
